@@ -2,6 +2,7 @@ import com.ibm.db2.jcc.DB2Driver;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.Scanner;
 import java.sql.*;
 
@@ -28,14 +29,55 @@ public class Soccer {
     }
 
     private static boolean handleMainMenuInput() {
+        boolean shouldExit = false;
         switch (getFinalMainMenuInput()) {
             case EXIT:
                 return true;
-            case TODO: // TODO
-            case LIST_MATCHES: // TODO
-            case INSERT_PLAYER: // TODO
+            case LIST_MATCHES:
+                while (!shouldExit) {
+                    shouldExit = handleListMatches();
+                }
+                break;
+            case TODO:
+                while (!shouldExit) {
+                    shouldExit = handleTODO();
+                }
+                break;
+            case INSERT_PLAYER:
+                while (!shouldExit) {
+                    shouldExit = handleInsertPlayer();
+                }
+                break;
         }
         return false;
+    }
+
+    // TODO
+    private static boolean handleTODO() {
+        return true;
+    }
+
+    // TODO
+    private static boolean handleInsertPlayer() {
+        return true;
+    }
+
+    private static boolean handleListMatches() {
+        switch (getListMatchesInput().toUpperCase(Locale.ROOT)) {
+            case "A":
+                // TODO
+                break;
+            case "P":
+                return true;
+            default:
+                System.out.println("Invalid input, try again");
+        }
+        return false;
+    }
+
+    private static String getListMatchesInput() {
+        System.out.print("Enter 'A' to find matches of a country, 'P' to go to the previous menu: ");
+        return SCANNER.nextLine();
     }
 
     private static MainMenuInput getFinalMainMenuInput() {
