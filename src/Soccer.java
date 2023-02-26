@@ -65,7 +65,7 @@ public class Soccer {
     private static boolean handleListMatches() {
         switch (getListMatchesInput().toUpperCase(Locale.ROOT)) {
             case "A":
-                // TODO
+                performListMatches();
                 break;
             case "P":
                 return true;
@@ -73,6 +73,68 @@ public class Soccer {
                 System.out.println("Invalid input, try again");
         }
         return false;
+    }
+
+    private static void performListMatches() {
+        System.out.print("Enter the country: ");
+        final String country = SCANNER.nextLine();
+        while (!listMatches(country)) {
+            System.out.println("Failed to execute query");
+        }
+    }
+
+    private static boolean listMatches(String country) {
+        try {
+            final Statement statement = connection.createStatement();
+            final ResultSet rs = statement.executeQuery(String.format("select m.COUNTRY1,\n" +
+                                                                      "       m.COUNTRY2,\n" +
+                                                                      "       m.DATE,\n" +
+                                                                      "       m.ROUND,\n" +
+                                                                      "       case\n" +
+                                                                      "           when m.LENGTH is not null then\n" +
+                                                                      "               coalesce(goals1.goals_scored, 0)\n" +
+                                                                      "           else goals1.goals_scored end goals1,\n" +
+                                                                      "       case\n" +
+                                                                      "           when m.LENGTH is not null then\n" +
+                                                                      "               coalesce(goals2.goals_scored, 0)\n" +
+                                                                      "           else goals2.goals_scored end goals2,\n" +
+                                                                      "       coalesce(seats_bought, 0)        seats_sold\n" +
+                                                                      "from MATCH m\n" +
+                                                                      "         left join (select m.MATCH_NUMBER, count(*) seats_bought\n" +
+                                                                      "                    from MATCH m\n" +
+                                                                      "                             join PURCHASE p on m.MATCH_NUMBER = p.MATCH_NUMBER\n" +
+                                                                      "                             join SELECTED s on p.EMAIL = s.EMAIL and p.PID = s.PID\n" +
+                                                                      "                    group by m.MATCH_NUMBER) seats on m.MATCH_NUMBER = seats.MATCH_NUMBER\n" +
+                                                                      "         left join (select g.MATCH_NUMBER, count(*) goals_scored\n" +
+                                                                      "                    from MATCH m\n" +
+                                                                      "                             join GOAL g on m.MATCH_NUMBER = g.MATCH_NUMBER\n" +
+                                                                      "                    where g.COUNTRY = m.COUNTRY1\n" +
+                                                                      "                    group by g.MATCH_NUMBER) goals1 on m.MATCH_NUMBER = goals1.MATCH_NUMBER\n" +
+                                                                      "         left join (select g.MATCH_NUMBER, count(*) goals_scored\n" +
+                                                                      "                    from MATCH m\n" +
+                                                                      "                             join GOAL g on m.MATCH_NUMBER = g.MATCH_NUMBER\n" +
+                                                                      "                    where g.COUNTRY = m.COUNTRY2\n" +
+                                                                      "                    group by g.MATCH_NUMBER) goals2 on m.MATCH_NUMBER = goals2.MATCH_NUMBER\n" +
+                                                                      "where m.COUNTRY1 = '%s'\n" +
+                                                                      "   or m.COUNTRY2 = '%s'\n" +
+                                                                      "order by DATE", country, country));
+            System.out.println("[Country one]\t[Country two]\t[Date]\t[Group Round]\t[Goals from team one]\t[Goals from team two]\t[Seats sold]");
+            while (rs.next()) {
+                Integer goals1 = rs.getInt("goals1");
+                goals1 = rs.wasNull() ? null : goals1;
+                Integer goals2 = rs.getInt("goals2");
+                goals2 = rs.wasNull() ? null : goals2;
+                System.out.printf("\t%s\t\t\t%s\t%s\t\t%s\t\t\t%s\t\t\t%s\t\t\t\t%s\n",
+                        rs.getString("COUNTRY1"),
+                        rs.getString("COUNTRY2"),
+                        rs.getDate("DATE"),
+                        rs.getString("ROUND"),
+                        goals1, goals2, rs.getInt("seats_sold"));
+            }
+        } catch (Exception ignored) {
+            return false;
+        }
+        return true;
     }
 
     private static String getListMatchesInput() {
