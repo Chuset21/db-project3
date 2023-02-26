@@ -28,7 +28,7 @@ public class Soccer {
     }
 
     private static boolean handleMainMenuInput() {
-        switch (getMainMenuInput()) {
+        switch (getFinalMainMenuInput()) {
             case EXIT:
                 return true;
             case TODO: // TODO
@@ -38,48 +38,48 @@ public class Soccer {
         return false;
     }
 
-    private static Input getMainMenuInput() {
-        Input input = Input.EXIT;
+    private static MainMenuInput getFinalMainMenuInput() {
+        MainMenuInput input = MainMenuInput.EXIT;
         do {
-            if (input != Input.EXIT) {
+            if (input != MainMenuInput.EXIT) {
                 System.out.println("Number must be on of the following options:");
             }
             printMessage();
-        } while ((input = takeInput()) == null);
+        } while ((input = tryGetMainMenuInput()) == null);
         return input;
     }
 
     private static void printMessage() {
         System.out.printf("Soccer Main Menu\n\t\t%d. List information of matches of a country\n\t\t%d. Insert initial player information for a match\n\t\t%d. TODO\n\t\t%d. Exit application\nPlease enter your option: ",
-                Input.LIST_MATCHES.value,
-                Input.INSERT_PLAYER.value,
-                Input.TODO.value,
-                Input.EXIT.value);
+                MainMenuInput.LIST_MATCHES.value,
+                MainMenuInput.INSERT_PLAYER.value,
+                MainMenuInput.TODO.value,
+                MainMenuInput.EXIT.value);
     }
 
-    private static Input takeInput() {
+    private static MainMenuInput tryGetMainMenuInput() {
         try {
             final int result = SCANNER.nextInt();
             SCANNER.nextLine();
-            return Input.getInputFromValue(result);
+            return MainMenuInput.getInputFromValue(result);
         } catch (Exception ignored) {
             SCANNER.nextLine();
             return null;
         }
     }
 
-    private enum Input {
+    private enum MainMenuInput {
         LIST_MATCHES(1), INSERT_PLAYER(2), TODO(3), EXIT(4);
 
         public final int value;
 
-        Input(int value) {
+        MainMenuInput(int value) {
             this.value = value;
         }
 
-        public static Input getInputFromValue(int value) {
-            if (value < Arrays.stream(Input.values()).map(e -> e.value).min(Comparator.comparingInt(o -> o)).orElse(Integer.MIN_VALUE)
-                || value > Arrays.stream(Input.values()).map(e -> e.value).max(Comparator.comparingInt(o -> o)).orElse(Integer.MAX_VALUE)) {
+        public static MainMenuInput getInputFromValue(int value) {
+            if (value < Arrays.stream(MainMenuInput.values()).map(e -> e.value).min(Comparator.comparingInt(o -> o)).orElse(Integer.MIN_VALUE)
+                || value > Arrays.stream(MainMenuInput.values()).map(e -> e.value).max(Comparator.comparingInt(o -> o)).orElse(Integer.MAX_VALUE)) {
                 return null;
             }
 
