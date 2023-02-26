@@ -13,13 +13,13 @@ public class Soccer {
         connectToDatabase();
         boolean shouldExit = false;
         while (!shouldExit) {
-            shouldExit = doSomething();
+            shouldExit = handleMainMenuInput();
         }
 
+        System.out.println("Exiting application");
         if (!connection.isClosed()) {
             connection.close();
         }
-        System.out.println("Exiting application");
     }
 
     private static void connectToDatabase() throws SQLException {
@@ -27,7 +27,18 @@ public class Soccer {
         connection = DriverManager.getConnection("jdbc:db2://winter2023-comp421.cs.mcgill.ca:50000/cs421", "cs421g54", "Z4VbUw3pq54");
     }
 
-    private static boolean doSomething() {
+    private static boolean handleMainMenuInput() {
+        switch (getMainMenuInput()) {
+            case EXIT:
+                return true;
+            case TODO: // TODO
+            case LIST_MATCHES: // TODO
+            case INSERT_PLAYER: // TODO
+        }
+        return false;
+    }
+
+    private static Input getMainMenuInput() {
         Input input = Input.EXIT;
         do {
             if (input != Input.EXIT) {
@@ -35,8 +46,7 @@ public class Soccer {
             }
             printMessage();
         } while ((input = takeInput()) == null);
-        // TODO do something with the input
-        return false;
+        return input;
     }
 
     private static void printMessage() {
