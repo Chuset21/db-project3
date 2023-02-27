@@ -1,8 +1,13 @@
 import com.ibm.db2.jcc.DB2Driver;
 
+import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
-import java.sql.*;
 
 public class Soccer {
     private static final Scanner SCANNER = new Scanner(System.in);
@@ -36,9 +41,9 @@ public class Soccer {
                     shouldExit = handleListMatches();
                 }
                 break;
-            case TODO:
+            case SEE_MONEY_SPENT_FOR_TEAM:
                 while (!shouldExit) {
-                    shouldExit = handleTODO();
+                    shouldExit = handleSeeMoneySpentForTeam();
                 }
                 break;
             case INSERT_PLAYER:
@@ -50,12 +55,80 @@ public class Soccer {
         return false;
     }
 
-    // TODO
-    private static boolean handleTODO() {
-        return true;
+    private static boolean handleSeeMoneySpentForTeam() {
+        switch (getSeeMoneySpentForTeamInput().toUpperCase(Locale.ROOT)) {
+            case "A":
+                performSeeMoneySpentForTeam();
+                break;
+            case "P":
+                return true;
+            default:
+                System.out.println("Invalid input, try again");
+        }
+        return false;
     }
 
-    // TODO
+    private static void performSeeMoneySpentForTeam() {
+        System.out.println("Clients:");
+        final Map<String, String> clientMap = new HashMap<>();
+        try {
+            final Statement statement = connection.createStatement();
+            final ResultSet rs = statement.executeQuery("select EMAIL, NAME from CLIENT order by NAME;");
+
+            while (rs.next()) {
+                final String email = rs.getString("EMAIL");
+                final String name = rs.getString("NAME");
+                clientMap.put(email, name);
+                System.out.printf("\temail:\t%s\t\tname:%s\n", email, name);
+            }
+            statement.close();
+        } catch (Exception ignored) {
+        }
+        try {
+            System.out.println("\nCountries:");
+            final Statement statement = connection.createStatement();
+            final ResultSet rs = statement.executeQuery("select COUNTRY from TEAM order by COUNTRY;");
+
+            while (rs.next()) {
+                System.out.printf("%s\n", rs.getString("COUNTRY"));
+            }
+            statement.close();
+        } catch (Exception ignored) {
+        }
+
+        System.out.print("\nEnter the client's email: ");
+        final String email = SCANNER.nextLine();
+        System.out.print("Enter the country: ");
+        final String country = SCANNER.nextLine();
+
+        try {
+            final Statement statement = connection.createStatement();
+            final ResultSet rs = statement.executeQuery(String.format("SELECT coalesce(sum(pr.PRICE), 0) MONEY_SPENT\n" +
+                                                                      "from CLIENT c\n" +
+                                                                      "         join PURCHASE p on c.EMAIL = p.EMAIL\n" +
+                                                                      "         join SELECTED s on p.EMAIL = s.EMAIL and p.PID = s.PID\n" +
+                                                                      "         join SEAT s2 on s.NAME = s2.NAME and s.NUMBER = s2.NUMBER\n" +
+                                                                      "         join MATCH m on p.MATCH_NUMBER = m.MATCH_NUMBER\n" +
+                                                                      "         join PRICE pr on s2.NAME = pr.NAME and s2.NUMBER = pr.NUMBER and m.MATCH_NUMBER = pr.MATCH_NUMBER\n" +
+                                                                      "where c.EMAIL = '%s'\n" +
+                                                                      "  and (m.COUNTRY1 = '%s' or m.COUNTRY2 = '%s');", email, country, country));
+
+            if (rs.next()) {
+                System.out.printf("\nTotal money spent by %s to see %s: $%s\n",
+                        clientMap.get(email),
+                        country,
+                        BigDecimal.valueOf(rs.getInt("MONEY_SPENT"), 2));
+            }
+            statement.close();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static String getSeeMoneySpentForTeamInput() {
+        System.out.print("Enter 'A' to see the money spent by a client to see matches from a specific team or 'P' to go to the previous menu: ");
+        return SCANNER.nextLine();
+    }
+
     private static boolean handleInsertPlayer() {
         printMatchesWithinNextThreeDays();
         switch (getFirstInsertPlayerInput().toUpperCase(Locale.ROOT)) {
@@ -286,10 +359,10 @@ public class Soccer {
     }
 
     private static void printMessage() {
-        System.out.printf("Soccer Main Menu\n\t\t%d. List information of matches of a country\n\t\t%d. Insert initial player information for a match\n\t\t%d. TODO\n\t\t%d. Exit application\nPlease enter your option: ",
+        System.out.printf("Soccer Main Menu\n\t\t%d. List information of matches of a country\n\t\t%d. Insert initial player information for a match\n\t\t%d. See total money spent by a client to see a specific team play\n\t\t%d. Exit application\nPlease enter your option: ",
                 MainMenuInput.LIST_MATCHES.value,
                 MainMenuInput.INSERT_PLAYER.value,
-                MainMenuInput.TODO.value,
+                MainMenuInput.SEE_MONEY_SPENT_FOR_TEAM.value,
                 MainMenuInput.EXIT.value);
     }
 
@@ -305,7 +378,7 @@ public class Soccer {
     }
 
     private enum MainMenuInput {
-        LIST_MATCHES(1), INSERT_PLAYER(2), TODO(3), EXIT(4);
+        LIST_MATCHES(1), INSERT_PLAYER(2), SEE_MONEY_SPENT_FOR_TEAM(3), EXIT(4);
 
         public final int value;
 
@@ -323,8 +396,8 @@ public class Soccer {
                 return LIST_MATCHES;
             } else if (value == INSERT_PLAYER.value) {
                 return INSERT_PLAYER;
-            } else if (value == TODO.value) {
-                return TODO;
+            } else if (value == SEE_MONEY_SPENT_FOR_TEAM.value) {
+                return SEE_MONEY_SPENT_FOR_TEAM;
             } else if (value == EXIT.value) {
                 return EXIT;
             }
