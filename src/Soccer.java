@@ -1,9 +1,7 @@
 import com.ibm.db2.jcc.DB2Driver;
 
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Locale;
-import java.util.Scanner;
+import java.sql.Date;
+import java.util.*;
 import java.sql.*;
 
 public class Soccer {
@@ -59,7 +57,140 @@ public class Soccer {
 
     // TODO
     private static boolean handleInsertPlayer() {
-        return true;
+        printMatchesWithinNextThreeDays();
+        switch (getFirstInsertPlayerInput().toUpperCase(Locale.ROOT)) {
+            case "A":
+                System.out.print("Enter the match number: ");
+                final int matchNumber = SCANNER.nextInt();
+                SCANNER.nextLine();
+                System.out.print("Enter the country: ");
+                final String country = SCANNER.nextLine();
+                boolean shouldExit = false;
+                while (!shouldExit) {
+                    shouldExit = handleInsertingPlayer(matchNumber, country);
+                }
+                break;
+            case "P":
+                return true;
+            default:
+                System.out.println("Invalid input, try again");
+        }
+        return false;
+    }
+
+    private static void printMatchesWithinNextThreeDays() {
+        System.out.println("Matches:");
+        final Statement statement;
+        try {
+            statement = connection.createStatement();
+
+            final Date today = new Date(System.currentTimeMillis());
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(today);
+            calendar.add(Calendar.DATE, 3);
+            final Date dateInThreeDays = new Date(calendar.getTimeInMillis());
+
+            final ResultSet rs = statement.executeQuery(String.format("select MATCH_NUMBER, COUNTRY1, COUNTRY2, DATE, ROUND\n" +
+                                                                      "    from MATCH\n" +
+                                                                      "where DATE >= '%s' and DATE <= '%s' and COUNTRY2 is not null and COUNTRY1 is not null\n" +
+                                                                      "order by DATE;", today, dateInThreeDays));
+            while (rs.next()) {
+                System.out.printf("\t\t%d\t%s\t%s\t%s\t%s\n",
+                        rs.getInt("MATCH_NUMBER"),
+                        rs.getString("COUNTRY1"),
+                        rs.getString("COUNTRY2"),
+                        rs.getDate("DATE"),
+                        rs.getString("ROUND"));
+            }
+            statement.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static boolean handleInsertingPlayer(int matchNumber, String country) {
+        System.out.printf("The following players from %s are already entered for match %d:\n", country, matchNumber);
+        try {
+            final Statement statement = connection.createStatement();
+            final ResultSet rs = statement.executeQuery(String.format("select NAME, NUMBER, DETAILED_POSITION, MINUTE_ENTERED, MINUTE_EXITED, YELLOW_CARDS, RECEIVED_RED_CARD\n" +
+                                                                      "from PLAYIN pl\n" +
+                                                                      "         join PLAYER p on pl.COUNTRY = p.COUNTRY and pl.PID = p.PID\n" +
+                                                                      "where MATCH_NUMBER = %d\n" +
+                                                                      "  and p.COUNTRY = '%s'\n" +
+                                                                      "order by NAME;", matchNumber, country));
+
+            while (rs.next()) {
+                Integer toMinute = rs.getInt("MINUTE_EXITED");
+                toMinute = rs.wasNull() ? null : toMinute;
+
+                System.out.printf("\t%s\t%d\t%s\tfrom minute %d\tto minute %s\tyellow: %d\tred: %b\n",
+                        rs.getString("NAME"),
+                        rs.getInt("NUMBER"),
+                        rs.getString("DETAILED_POSITION"),
+                        rs.getInt("MINUTE_ENTERED"),
+                        toMinute,
+                        rs.getInt("YELLOW_CARDS"),
+                        rs.getBoolean("RECEIVED_RED_CARD"));
+            }
+            statement.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        List<Integer> pids = new ArrayList<>();
+        System.out.printf("\nPossible players from %s not yet selected:\n", country);
+        try {
+            final Statement statement = connection.createStatement();
+            final ResultSet rs = statement.executeQuery(String.format("select PID, NAME, NUMBER, POSITION\n" +
+                                                                      "from PLAYER p\n" +
+                                                                      "where p.COUNTRY = '%s'\n" +
+                                                                      "except\n" +
+                                                                      "select p.PID, NAME, NUMBER, p.POSITION\n" +
+                                                                      "from PLAYIN pl\n" +
+                                                                      "         join PLAYER p on pl.COUNTRY = p.COUNTRY and pl.PID = p.PID\n" +
+                                                                      "where MATCH_NUMBER = %d\n" +
+                                                                      "  and p.COUNTRY = '%s'\n" +
+                                                                      "order by NAME;", country, matchNumber, country));
+
+            int count = 1;
+            while (rs.next()) {
+                pids.add(rs.getInt("PID"));
+                System.out.printf("%d.\t%s\t%d\t%s\n",
+                        count,
+                        rs.getString("NAME"),
+                        rs.getInt("NUMBER"),
+                        rs.getString("POSITION"));
+                count++;
+            }
+            statement.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        System.out.print("\nEnter the number of the player you want to insert or 'P' to go to the previous menu: ");
+        final String input = SCANNER.nextLine().toUpperCase(Locale.ROOT);
+        if (input.equals("P")) {
+            return true;
+        } else {
+            final int pid = pids.get(Integer.parseInt(input) - 1);
+            System.out.print("Enter the player's detailed position: ");
+            final String detailedPosition = SCANNER.nextLine();
+            try {
+                final Statement statement = connection.createStatement();
+                statement.executeUpdate(String.format("insert into PLAYIN (PID, COUNTRY, MATCH_NUMBER, YELLOW_CARDS, RECEIVED_RED_CARD, DETAILED_POSITION, MINUTE_ENTERED,\n" +
+                                                      "                    MINUTE_EXITED)\n" +
+                                                      "values (%d, '%s', %d, 0, false, '%s', 0, null)", pid, country, matchNumber, detailedPosition));
+                statement.close();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return false;
+    }
+
+    private static String getFirstInsertPlayerInput() {
+        System.out.print("Enter 'A' to insert a player, 'P' to go to the previous menu: ");
+        return SCANNER.nextLine();
     }
 
     private static boolean handleListMatches() {
@@ -131,6 +262,7 @@ public class Soccer {
                         rs.getString("ROUND"),
                         goals1, goals2, rs.getInt("seats_sold"));
             }
+            statement.close();
         } catch (Exception ignored) {
             return false;
         }
