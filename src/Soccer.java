@@ -183,6 +183,7 @@ public class Soccer {
 
     private static boolean handleInsertingPlayer(int matchNumber, String country) {
         System.out.printf("The following players from %s are already entered for match %d:\n", country, matchNumber);
+        int count = 0;
         try {
             final Statement statement = connection.createStatement();
             final ResultSet rs = statement.executeQuery(String.format("select NAME, NUMBER, DETAILED_POSITION, MINUTE_ENTERED, MINUTE_EXITED, YELLOW_CARDS, RECEIVED_RED_CARD\n" +
@@ -193,6 +194,7 @@ public class Soccer {
                                                                       "order by NAME;", matchNumber, country));
 
             while (rs.next()) {
+                count++;
                 Integer toMinute = rs.getInt("MINUTE_EXITED");
                 toMinute = rs.wasNull() ? null : toMinute;
 
@@ -210,53 +212,58 @@ public class Soccer {
             throw new RuntimeException(e);
         }
 
-        List<Integer> pids = new ArrayList<>();
-        System.out.printf("\nPossible players from %s not yet selected:\n", country);
-        try {
-            final Statement statement = connection.createStatement();
-            final ResultSet rs = statement.executeQuery(String.format("select PID, NAME, NUMBER, POSITION\n" +
-                                                                      "from PLAYER p\n" +
-                                                                      "where p.COUNTRY = '%s'\n" +
-                                                                      "except\n" +
-                                                                      "select p.PID, NAME, NUMBER, p.POSITION\n" +
-                                                                      "from PLAYIN pl\n" +
-                                                                      "         join PLAYER p on pl.COUNTRY = p.COUNTRY and pl.PID = p.PID\n" +
-                                                                      "where MATCH_NUMBER = %d\n" +
-                                                                      "  and p.COUNTRY = '%s'\n" +
-                                                                      "order by NAME;", country, matchNumber, country));
-
-            int count = 1;
-            while (rs.next()) {
-                pids.add(rs.getInt("PID"));
-                System.out.printf("%d.\t%s\t%d\t%s\n",
-                        count,
-                        rs.getString("NAME"),
-                        rs.getInt("NUMBER"),
-                        rs.getString("POSITION"));
-                count++;
-            }
-            statement.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        System.out.print("\nEnter the number of the player you want to insert or 'P' to go to the previous menu: ");
-        final String input = SCANNER.nextLine().toUpperCase(Locale.ROOT);
-        if (input.equals("P")) {
-            return true;
-        } else {
-            final int pid = pids.get(Integer.parseInt(input) - 1);
-            System.out.print("Enter the player's detailed position: ");
-            final String detailedPosition = SCANNER.nextLine();
+        if (count < 3) {
+            List<Integer> pids = new ArrayList<>();
+            System.out.printf("\nPossible players from %s not yet selected:\n", country);
             try {
                 final Statement statement = connection.createStatement();
-                statement.executeUpdate(String.format("insert into PLAYIN (PID, COUNTRY, MATCH_NUMBER, YELLOW_CARDS, RECEIVED_RED_CARD, DETAILED_POSITION, MINUTE_ENTERED,\n" +
-                                                      "                    MINUTE_EXITED)\n" +
-                                                      "values (%d, '%s', %d, 0, false, '%s', 0, null)", pid, country, matchNumber, detailedPosition));
+                final ResultSet rs = statement.executeQuery(String.format("select PID, NAME, NUMBER, POSITION\n" +
+                                                                          "from PLAYER p\n" +
+                                                                          "where p.COUNTRY = '%s'\n" +
+                                                                          "except\n" +
+                                                                          "select p.PID, NAME, NUMBER, p.POSITION\n" +
+                                                                          "from PLAYIN pl\n" +
+                                                                          "         join PLAYER p on pl.COUNTRY = p.COUNTRY and pl.PID = p.PID\n" +
+                                                                          "where MATCH_NUMBER = %d\n" +
+                                                                          "  and p.COUNTRY = '%s'\n" +
+                                                                          "order by NAME;", country, matchNumber, country));
+
+                int c = 1;
+                while (rs.next()) {
+                    pids.add(rs.getInt("PID"));
+                    System.out.printf("%d.\t%s\t%d\t%s\n",
+                            c,
+                            rs.getString("NAME"),
+                            rs.getInt("NUMBER"),
+                            rs.getString("POSITION"));
+                    c++;
+                }
                 statement.close();
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
+
+            System.out.print("\nEnter the number of the player you want to insert or 'P' to go to the previous menu: ");
+            final String input = SCANNER.nextLine().toUpperCase(Locale.ROOT);
+            if (input.equals("P")) {
+                return true;
+            } else {
+                final int pid = pids.get(Integer.parseInt(input) - 1);
+                System.out.print("Enter the player's detailed position: ");
+                final String detailedPosition = SCANNER.nextLine();
+                try {
+                    final Statement statement = connection.createStatement();
+                    statement.executeUpdate(String.format("insert into PLAYIN (PID, COUNTRY, MATCH_NUMBER, YELLOW_CARDS, RECEIVED_RED_CARD, DETAILED_POSITION, MINUTE_ENTERED,\n" +
+                                                          "                    MINUTE_EXITED)\n" +
+                                                          "values (%d, '%s', %d, 0, false, '%s', 0, null)", pid, country, matchNumber, detailedPosition));
+                    statement.close();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        } else {
+            System.out.println("\nOnly 3 players can play in one game.\n");
+            return true;
         }
         return false;
     }
